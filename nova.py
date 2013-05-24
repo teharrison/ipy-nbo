@@ -4,18 +4,24 @@ import sys
 from novaclient.v1_1 import client
 
 class Nova(object):
-    def __init__(self, cfg, space='ipy'):
+    def __init__(self, auth, cfg, space='ipy'):
+        self.section = "nova-"+space
         self.handle = None
-        try:
-            section = "nova-" + space
-            self.handle = client.Client(
-                cfg.get(section, "user"),
-                cfg.get(section, "pwd"),
-                cfg.get(section, "tenant"),
-                cfg.get(section, "auth_url"),
-                insecure=True )
-        except:
-            sys.stderr.write("Error: Could not connect to %s openstack\n"%space)
+        self.error = None
+        if cfg.has_section(self.section):
+            try:
+                self.handle = client.Client(
+                    auth['user'], auth['pswd'],
+                    cfg.get(self.section, "tenant"),
+                    cfg.get(self.section, "auth_url"),
+                    insecure=True )
+                test = self.handle.flavors.list()
+            except:
+                e = sys.exc_info()[0]
+                self.error = {'status': e.http_status, 'msg': e.__doc__}
+                self.handle = None
+        else:
+            self.error = {'status': 400, 'msg': "Bad Request: invalid nova type '%s'"%space}
     
     def _server_dict(self, server):
         return { 'created': server.created,
@@ -23,7 +29,7 @@ class Nova(object):
                  'id': server.id,
                  'image': server.image['id'],
                  'name': server.name,
-                 'addresses': server.addresses,
+                 'addresses': server.addresses['service'],
                  'status': server.status,
                  'updated': server.updated,
                  'user_id': server.user_id,
@@ -36,36 +42,34 @@ class Nova(object):
             servers.append(self._server_dict(s))
         return servers
     
-    def view(self, sid):
+    def get(self, sid):
         server = self.handle.servers.get(sid)
         return self._server_dict(server)
         
-    def create(self, name, cfg, space):
-        section = "nova-" + space
-        try:
-            image = self.handle.images.get(cfg.get(section, "image"))
-            flavor = self.handle.flavors.get(cfg.get(section, "flavor"))
-            security = self.handle.security_groups.get(cfg.get(section, "security"))
-            self.handle.servers.create(
-                name, image, flavor,
-                security_groups=[security],
-                key_name=cfg.get(section, "vm_key") )
-            return True
-        except:
-            return False
+    def create(self, name, cfg):
+        image = self.handle.images.get(cfg.get(self.section, "image"))
+        flavor = self.handle.flavors.get(cfg.get(self.section, "flavor"))
+        security = self.handle.security_groups.get(cfg.get(self.section, "security"))
+        server = self.handle.servers.create(
+            name, image, flavor,
+            security_groups=[security],
+            key_name=cfg.get(self.section, "vm_key") )
+        return self._server_dict(server)
     
     def delete(self, sid):
         try:
             server = self.handle.servers.get(sid)
             server.delete()
-            return True
+            return None
         except:
-            return False
+            e = sys.exc_info()[0]
+            return {'status': e.http_status, 'msg': e.__doc__}
     
     def reboot(self, sid, level='REBOOT_HARD'):
         try:
             server = self.handle.servers.get(sid)
             server.reboot(level)
-            return True
+            return None
         except:
-            return False
+            e = sys.exc_info()[0]
+            return {'status': e.http_status, 'msg': e.__doc__}

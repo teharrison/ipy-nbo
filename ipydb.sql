@@ -1,10 +1,10 @@
 DROP TABLE IF EXISTS status;
 CREATE TABLE status (
     _id SERIAL UNIQUE PRIMARY KEY,
-    vm_id uuid NOT NULL,
+    vm_id uuid UNIQUE NOT NULL,
     vm_name text NOT NULL,
     vm_ip inet NOT NULL,
-    vm_start TIMESTAMP NOT NULL,
+    vm_start TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     vm_last_access TIMESTAMP,
     ipy_on BOOLEAN NOT NULL,
     user_name TEXT,
