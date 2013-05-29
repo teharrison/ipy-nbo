@@ -105,10 +105,10 @@ class Nova(object):
         try:
             fmap = dict([(f['id'], f) for f in flavors])
             for s in servers['data']:
-                if s.flavor not in fmap:
+                if s['flavor'] not in fmap:
                     continue
-                a = len(s.addresses)
-                f = fmap[s.flavor]
+                a = len(s['addresses'])
+                f = fmap[s['flavor']]
                 current['instances'] += 1
                 current['vcpus'] += f['vcpus']
                 current['disk'] += f['disk'] + f['ephemeral']
