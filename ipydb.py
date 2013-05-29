@@ -1,27 +1,14 @@
 #!/usr/bin/env python
 
-import sys
 import psycopg2, psycopg2.extras
-from datetime import datetime
-
-def clean_dt(data):
-    if data:
-        if ('vm_start' in data) and data['vm_start']:
-            data['vm_start'] = str(data['vm_start'])
-        if ('vm_last_access' in data) and data['vm_last_access']:
-            data['vm_last_access'] = str(data['vm_last_access'])
-    return data
+import utils
 
 class IpyDB(object):
-    def __init__(self, cfg):
+    def __init__(self, params):
         self.handle = None
         self.error = None
         try:
-            self.handle = psycopg2.connect(
-                host='localhost',
-                database=cfg.get("psql", "name"),
-                user=cfg.get("psql", "user"),
-                password=cfg.get("psql", "password") )
+            self.handle = psycopg2.connect(**params)
         except psycopg2.DatabaseError, e:
             if self.handle:
                 self.handle.rollback()
@@ -48,6 +35,7 @@ class IpyDB(object):
                 vm_id uuid UNIQUE NOT NULL,
                 vm_name text NOT NULL,
                 vm_ip inet NOT NULL,
+                vm_key text NOT NULL,
                 vm_start TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 vm_last_access TIMESTAMP,
                 ipy_on BOOLEAN NOT NULL,
@@ -61,20 +49,20 @@ class IpyDB(object):
     def list(self):
         cur = self.cursor(True)
         cur.execute("SELECT * FROM status")
-        res = map(lambda x: clean_dt(x), cur.fetchall())
+        res = map(lambda x: utils.stringify_dt(x), cur.fetchall())
         cur.close()
         return res
         
     def get(self, column, value):
         cur = self.cursor(True)
         cur.execute("SELECT * FROM status WHERE "+column+" = %s", (value,))
-        res = clean_dt(cur.fetchone())
+        res = utils.stringify_dt(cur.fetchone())
         cur.close()
         return res
     
-    def insert(self, vid, vname, vip):
+    def insert(self, vid, vname, vip, vkey):
         cur = self.cursor()
-        cur.execute("INSERT INTO status (vm_id,vm_name,vm_ip,ipy_on) VALUES (%s,%s,%s,%s);", (vid,vname,vip,False))
+        cur.execute("INSERT INTO status (vm_id,vm_name,vm_ip,vm_key,ipy_on) VALUES (%s,%s,%s,%s,%s);", (vid,vname,vip,vkey,False))
         cur.close()
         
     def update(self, vid, access=None, ipy=None, user=None, port=None):
@@ -92,13 +80,13 @@ class IpyDB(object):
         cur.execute("DELETE FROM status WHERE vm_id = %s", (vid,))
         cur.close()
     
-    def next_val():
+    def next_val(self):
         cur = self.cursor()
         cur.execute("SELECT MAX(_id) FROM status")
-        next = cur.fetchone()[0] + 1
+        next_num = cur.fetchone()[0] + 1
         cur.close()
-        return next
+        return next_num
         
-    def exit():
+    def exit(self):
         self.handle.commit()
         self.handle.close()
