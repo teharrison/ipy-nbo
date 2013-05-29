@@ -24,12 +24,15 @@ class Nova(object):
     
     # server object to dict
     def _server_dict(self, server):
+        ips = []
+        if 'service' in server.addresses:
+            ips = map(lambda a: a['addr'], server.addresses['service'])
         return { 'created': server.created,
-                 'flavor': server.flavor['id'] if 'id' in server.flavor else None,
+                 'flavor': server.flavor['id'],
                  'id': server.id,
-                 'image': server.image['id'] if 'id' in server.image else None,
+                 'image': server.image['id'],
                  'name': server.name,
-                 'addresses': server.addresses['service'] if 'service' in server.addresses else [],
+                 'addresses': ips,
                  'status': server.status,
                  'updated': server.updated,
                  'user': server.user_id,
