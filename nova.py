@@ -16,6 +16,12 @@ class Nova(object):
             self.error = {'status': e.http_status, 'msg': e.__doc__, 'data': None}
             self.handle = None
     
+    def _build_error(self, e):
+        if hasattr(e, 'http_status'):
+            return {'status': e.http_status, 'msg': e.__doc__, 'data': None}
+        else:
+            return {'status': 500, 'msg': 'Internal Server Error: '+e.__doc__, 'data': None}
+    
     # server object to dict
     def _server_dict(self, server):
         return { 'created': server.created,
@@ -52,8 +58,7 @@ class Nova(object):
                     data.append(self._server_dict(s))
             return {'status': 200, 'data': data}
         except:
-            e = sys.exc_info()[0]
-            return {'status': e.http_status, 'msg': e.__doc__, 'data': None}
+            return self._build_error(sys.exc_info()[0])
     
     # get flavor by id or list of all
     def flavor(self, fid=None):
@@ -67,8 +72,7 @@ class Nova(object):
                     data.append(self._flavor_dict(f))
             return {'status': 200, 'data': data}
         except:
-            e = sys.exc_info()[0]
-            return {'status': e.http_status, 'msg': e.__doc__, 'data': None}
+            return self._build_error(sys.exc_info()[0])
             
     # get quota for resources
     def quota(self):
@@ -83,8 +87,7 @@ class Nova(object):
                      'id': self.tenant }
             return {'status': 200, 'data': data}
         except:
-            e = sys.exc_info()[0]
-            return {'status': e.http_status, 'msg': e.__doc__, 'data': None}
+            return self._build_error(sys.exc_info()[0])
     
     # get currently used resources
     def usage(self):
@@ -112,8 +115,7 @@ class Nova(object):
                     current['floating_ips'] += a - 1
             return {'status': 200, 'data': current}
         except:
-            e = sys.exc_info()[0]
-            return {'status': 500, 'msg': e.__doc__, 'data': None}
+            return self._build_error(sys.exc_info()[0])
                 
     # get available resources
     def available(self, full=False):
@@ -143,8 +145,7 @@ class Nova(object):
                 key_name=key_name )
             return {'status': 200, 'data': self._server_dict(server)}
         except:
-            e = sys.exc_info()[0]
-            return {'status': e.http_status, 'msg': e.__doc__, 'data': None}
+            return self._build_error(sys.exc_info()[0])
     
     # delete server
     def delete(self, sid):
@@ -153,8 +154,7 @@ class Nova(object):
             server.delete()
             return {'status': 200, 'data': None}
         except:
-            e = sys.exc_info()[0]
-            return {'status': e.http_status, 'msg': e.__doc__, 'data': None}
+            return self._build_error(sys.exc_info()[0])
     
     # reboot server
     def reboot(self, sid, level='REBOOT_HARD'):
@@ -163,5 +163,4 @@ class Nova(object):
             server.reboot(level)
             return {'status': 200, 'data': None}
         except:
-            e = sys.exc_info()[0]
-            return {'status': e.http_status, 'msg': e.__doc__, 'data': None}
+            return self._build_error(sys.exc_info()[0])
