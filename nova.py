@@ -103,7 +103,7 @@ class Nova(object):
                     'memory': 0,
                     'floating_ips': 0 }
         try:
-            fmap = dict([(f['id'], f) for f in flavors])
+            fmap = dict([(f['id'], f) for f in flavors['data']])
             for s in servers['data']:
                 if s['flavor'] not in fmap:
                     continue
