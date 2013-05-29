@@ -33,22 +33,22 @@ except:
 
 # overwrite default error handeling
 @app.errorhandler(400)
-def bad_request():
+def bad_request(error=None):
     msg = 'Bad Request: %s'%request.url
     return return_json(None, msg, 400)
 
 @app.errorhandler(404)
-def not_found():
+def not_found(error=None):
     msg = 'Not Found: %s'%request.url
     return return_json(None, msg, 404)
 
 @app.errorhandler(405)
-def not_allowed():
+def not_allowed(error=None):
     msg = 'Method Not Allowed (%s): %s'%(request.method, request.url)
     return return_json(None, msg, 405)
 
 @app.errorhandler(500)
-def internal_error():
+def internal_error(error=None):
     msg = 'Internal Server Error: %s'%request.url
     return return_json(None, msg, 500)
 
