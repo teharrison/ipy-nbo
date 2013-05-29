@@ -154,10 +154,8 @@ def api_status_nova(ntype):
 def api_conf():
     pstart = int(cfg.get("ipyno", "pstart"))
     pend = int(cfg.get("ipyno", "pend"))
-    if 'port' not in request.args:
-        return return_json(None, "Bad Request: missing option 'port'", 400)
-    if 'ip' not in request.args:
-        return return_json(None, "Bad Request: missing option 'ip'", 400)
+    if ('port' not in request.args) or ('ip' not in request.args):
+        return return_json(None, "Bad Request: missing option, 'port' and 'ip' are required", 400)
     try:
         port = int(request.args['port'])
     except ValueError:
@@ -180,9 +178,10 @@ def api_nova():
     nova = Nova(auth, ncfg["tenant"], ncfg["auth_url"])
     if nova.error:
         return return_json(None, nova.error['msg'], nova.error['status'])
+    response = return_json(None, 'Method Not Allowed (%s): %s'%(request.method, request.url), 405)
     if request.method == 'GET':
         res = nova.server()
-        return return_json(res['data']) if res['status'] == 200 else return_json(None, res['msg'], res['status'])
+        response = return_json(res['data']) if res['status'] == 200 else return_json(None, res['msg'], res['status'])
     elif request.method == 'POST':
         ipydb = IpyDB(dbc)
         if ipydb.error:
@@ -192,11 +191,10 @@ def api_nova():
         if res['status'] == 200:
             ipydb.insert(res['data']['id'], res['data']['name'], res['data']['addresses'][0]['addr'], ncfg["vm_key"])
             ipydb.exit()
-            return return_json(res['data'])
+            response = return_json(res['data'])
         else:
-            return return_json(None, res['msg'], res['status'])
-    else:
-        return return_json(None, 'Method Not Allowed (%s): %s'%(request.method, request.url), 405)
+            response = return_json(None, res['msg'], res['status'])
+    return response
 
 @app.route('/nova/<vmid>', methods=['GET', 'PUT', 'DELETE'])
 def api_nova_server(vmid):
@@ -210,12 +208,13 @@ def api_nova_server(vmid):
     nova = Nova(auth, ncfg["tenant"], ncfg["auth_url"])
     if nova.error:
         return return_json(None, nova.error['msg'], nova.error['status'])
+    response = return_json(None, 'Method Not Allowed (%s): %s'%(request.method, request.url), 405)
     if request.method == 'GET':
         res = nova.server(vmid)
-        return return_json(res['data']) if res['status'] == 200 else return_json(None, res['msg'], res['status'])
+        response = return_json(res['data']) if res['status'] == 200 else return_json(None, res['msg'], res['status'])
     elif request.method == 'PUT':
         res = nova.reboot(vmid)
-        return return_json(vmid+' is rebooting') if res['status'] == 200 else return_json(None, res['msg'], res['status'])
+        response = return_json(vmid+' is rebooting') if res['status'] == 200 else return_json(None, res['msg'], res['status'])
     elif request.method == 'DELETE':
         ipydb = IpyDB(dbc)
         if ipydb.error:
@@ -223,12 +222,11 @@ def api_nova_server(vmid):
         res = nova.delete(vmid)
         if res['status'] == 200:
             ipydb.delete(vmid)
-            ipydb.exit()
-            return return_json(vmid+' is deleting')
+            response = return_json(vmid+' is deleting')
         else:
-            return return_json(None, res['msg'], res['status'])
-    else:
-        return return_json(None, 'Method Not Allowed (%s): %s'%(request.method, request.url), 405)
+            response = return_json(None, res['msg'], res['status'])
+        ipydb.exit()
+    return response
 
 @app.route('/ipython/<vmid>', methods=['POST', 'PUT', 'DELETE'])
 def api_ipy(vmid):
@@ -238,28 +236,30 @@ def api_ipy(vmid):
     if ipydb.error:
         return return_json(None, 'Service Unavailable: unable to connect to database, %s'%ipydb.error, 503)
     vminfo = ipydb.get('vm_id', vmid)
-    ipydb.exit()
+    response = return_json(None, 'Method Not Allowed (%s): %s'%(request.method, request.url), 405)
     if request.method == 'POST':
         cmd = 'cd %s; ./%s'%(ipycfg['init_dir'], ipycfg['init_script'])
         res = utils.run_remote_cmd(vminfo['vm_ip'], ipycfg['user'], join(sshdir, vminfo['vm_key']), cmd)
         if res['stderr']:
-            return return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
+            response = return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
         else:
-            return return_json('started ipython on %s (%s)'%(vminfo['vm_name'], vminfo['vm_id']))
+            response = return_json('started ipython on %s (%s)'%(vminfo['vm_name'], vminfo['vm_id']))
     elif request.method == 'PUT':
         cmd = 'cd %s; ./%s; sleep 1; ./%s'%(ipycfg['run_dir'], ipycfg['stop_script'], ipycfg['start_script'])
         res = utils.run_remote_cmd(vminfo['vm_ip'], ipycfg['user'], join(sshdir, vminfo['vm_key']), cmd)
         if res['stderr']:
-            return return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
+            response = return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
         else:
-            return return_json('rebooted ipython on %s (%s)'%(vminfo['vm_name'], vminfo['vm_id']))
+            response = return_json('rebooted ipython on %s (%s)'%(vminfo['vm_name'], vminfo['vm_id']))
     elif request.method == 'DELETE':
         cmd = 'cd %s; ./%s'%(ipycfg['run_dir'], ipycfg['stop_script'])
         res = utils.run_remote_cmd(vminfo['vm_ip'], ipycfg['user'], vminfo['vm_key'], cmd)
         if res['stderr']:
-            return return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
+            response = return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
         else:
-            return return_json('stoped ipython on %s (%s)'%(vminfo['vm_name'], vminfo['vm_id']))
+            response = return_json('stoped ipython on %s (%s)'%(vminfo['vm_name'], vminfo['vm_id']))
+    ipydb.exit()
+    return response
 
 def return_json(data, err=None, status=200):
     obj = { 'data': data,
