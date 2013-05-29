@@ -39,7 +39,7 @@ def bad_request(error=None):
 
 @app.errorhandler(404)
 def not_found(error=None):
-    msg = 'Not Found: %s'%request.url
+    msg = 'Not Found: %s is not a valid resource'%request.url
     return return_json(None, msg, 404)
 
 @app.errorhandler(405)
@@ -123,7 +123,7 @@ def api_status_vm(vmid):
         return return_json(None, 'Service Unavailable: unable to connect to database, %s'%ipydb.error, 503)
     res = ipydb.get('vm_id', vmid)
     ipydb.exit()
-    return return_json(res) if res else return_json(None, 'Internal Server Error: data not available for %s'%vmid, 500)
+    return return_json(res) if res else return_json(None, "Internal Server Error: data not available for VM '%s'"%vmid, 500)
     
 @app.route('/status/user/<name>', methods=['GET'])
 def api_status_user(name):
@@ -132,7 +132,7 @@ def api_status_user(name):
         return return_json(None, 'Service Unavailable: unable to connect to database, %s'%ipydb.error, 503)
     res = ipydb.get('user_name', name)
     ipydb.exit()
-    return return_json(res) if res else return_json(None, 'Internal Server Error: data not available for %s'%name, 500)
+    return return_json(res) if res else return_json(None, "Internal Server Error: data not available for user '%s'"%name, 500)
 
 @app.route('/status/nova/<type>', methods=['GET'])
 def api_status_nova(ntype):
@@ -170,7 +170,7 @@ def api_conf():
 def api_nova():
     sect = 'nova-'+request.args['type'] if 'type' in request.args else 'nova-ipy'
     if not cfg.has_section(sect):
-        return return_json(None, 'Bad Request: unknown nova type %s'%request.args['type'], 400)
+        return return_json(None, "Bad Request: unknown nova type '%s'"%request.args['type'], 400)
     ncfg = cfg.items(sect)
     auth = check_auth(request)
     if auth['error']:
@@ -271,4 +271,4 @@ def return_json(data, err=None, status=200):
     return resp
 
 if __name__ == '__main__':
-    app.run('0.0.0.0', int(cfg.get("ipyno", "port")))
+     app.run('0.0.0.0', int(cfg.get("ipyno", "port")), debug=True)
