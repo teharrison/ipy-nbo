@@ -135,11 +135,11 @@ def api_status_user(name):
     return return_json(res) if res else return_json(None, "Internal Server Error: data not available for user '%s'"%name, 500)
 
 @app.route('/status/nova/<type>', methods=['GET'])
-def api_status_nova(ntype):
+def api_status_nova(type):
     full = True if ('verbosity' in request.args) and (request.args['verbosity'] == 'max') else False
-    sect = 'nova-'+ntype
+    sect = 'nova-'+type
     if not cfg.has_section(sect):
-        return return_json(None, 'Bad Request: unknown nova type %s'%ntype, 400)
+        return return_json(None, 'Bad Request: unknown nova type %s'%type, 400)
     ncfg = cfg.items(sect)
     auth = check_auth(request)
     if auth['error']:
