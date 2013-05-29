@@ -18,7 +18,7 @@ def run_remote_cmd(host, user, key, cmd):
 
 def stringify_dt(data):
     if data:
-        for k, v in data.keys():
+        for k, v in data.iteritems():
             if type(v) is datetime:
                 data[k] = str(v)
     return data

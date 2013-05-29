@@ -191,6 +191,7 @@ def api_nova():
         res  = nova.create(name, ncfg["image"], ncfg["flavor"], ncfg["security"], ncfg["vm_key"])
         if res['status'] == 200:
             ipydb.insert(res['data']['id'], res['data']['name'], res['data']['addresses'][0]['addr'], ncfg["vm_key"])
+            ipydb.exit()
             return return_json(res['data'])
         else:
             return return_json(None, res['msg'], res['status'])
@@ -222,6 +223,7 @@ def api_nova_server(vmid):
         res = nova.delete(vmid)
         if res['status'] == 200:
             ipydb.delete(vmid)
+            ipydb.exit()
             return return_json(vmid+' is deleting')
         else:
             return return_json(None, res['msg'], res['status'])
@@ -236,6 +238,7 @@ def api_ipy(vmid):
     if ipydb.error:
         return return_json(None, 'Service Unavailable: unable to connect to database, %s'%ipydb.error, 503)
     vminfo = ipydb.get('vm_id', vmid)
+    ipydb.exit()
     if request.method == 'POST':
         cmd = 'cd %s; ./%s'%(ipycfg['init_dir'], ipycfg['init_script'])
         res = utils.run_remote_cmd(vminfo['vm_ip'], ipycfg['user'], join(sshdir, vminfo['vm_key']), cmd)
