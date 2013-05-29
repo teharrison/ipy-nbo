@@ -140,7 +140,7 @@ def api_status_nova(type):
     sect = 'nova-'+type
     if not cfg.has_section(sect):
         return return_json(None, 'Bad Request: unknown nova type %s'%type, 400)
-    ncfg = cfg.items(sect)
+    ncfg = dict(cfg.items(sect))
     auth = check_auth(request)
     if auth['error']:
         return return_json(None, auth['error'], 401)
@@ -171,7 +171,7 @@ def api_nova():
     sect = 'nova-'+request.args['type'] if 'type' in request.args else 'nova-ipy'
     if not cfg.has_section(sect):
         return return_json(None, "Bad Request: unknown nova type '%s'"%request.args['type'], 400)
-    ncfg = cfg.items(sect)
+    ncfg = dict(cfg.items(sect))
     auth = check_auth(request)
     if auth['error']:
         return return_json(None, auth['error'], 401)
@@ -201,7 +201,7 @@ def api_nova_server(vmid):
     sect = 'nova-'+request.args['type'] if 'type' in request.args else 'nova-ipy'
     if not cfg.has_section(sect):
         return return_json(None, 'Bad Request: unknown nova type %s'%request.args['type'], 400)
-    ncfg = cfg.items(sect)
+    ncfg = dict(cfg.items(sect))
     auth = check_auth(request)
     if auth['error']:
         return return_json(None, auth['error'], 401)
