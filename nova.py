@@ -36,6 +36,7 @@ class Nova(object):
                  'status': server.status,
                  'updated': server.updated,
                  'user': server.user_id,
+                 'host': server.hostId,
                  'tenant': server.tenant_id,
                  'key_name': server.key_name,
                  'metadata': server.metadata }

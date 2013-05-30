@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, os, base64
+import sys, os, base64, time
 import ConfigParser
 import utils
 from datetime import datetime
@@ -177,7 +177,11 @@ def api_nova():
         name = request.args['name'] if 'name' in request.args else 'ipynb_%d'%ipydb.next_val()
         res  = nova.create(name, ncfg["image"], ncfg["flavor"], ncfg["security"], ncfg["vm_key"])
         if res['status'] == 200:
-            ipydb.insert(res['data']['id'], res['data']['name'], res['data']['addresses'][0], ncfg["vm_key"])
+            vmid = res['data']['id']
+            while len(res['data']['addresses']) == 0:
+                time.sleep(30)
+                res = nova.server(vmid)
+            ipydb.insert(vmid, name, res['data']['addresses'][0], ncfg["vm_key"])
             response = return_json(res['data'])
         else:
             response = return_json(None, res['msg'], res['status'])
