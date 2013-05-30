@@ -242,7 +242,7 @@ def api_ipy(vmid):
             ipydb.update(vmid, ipy=True)
             response = return_json('initalized ipython on %s (%s)'%(vminfo['vm_name'], vmid))
     elif request.method == 'PUT':
-        cmd = 'sudo %s/%s; sleep 1; sudo %s/%s -a %s -s %s'%(ipycfg['run_dir'], ipycfg['stop_script'], ipycfg['run_dir'], ipycfg['start_script'], cfg.get("shock", "oauth"), cfg.get("shock", "url"))
+        cmd = 'sudo %s/%s; sleep 1; sudo %s/%s -a %s -s %s'%(ipycfg['run_dir'], ipycfg['stop_script'], ipycfg['run_dir'], ipycfg['start_script'], cfg.get("shock", "auth"), cfg.get("shock", "url"))
         res = utils.run_remote_cmd(vminfo['vm_ip'], ipycfg['user'], vmkey, cmd)
         if res['stderr']:
             response = return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
