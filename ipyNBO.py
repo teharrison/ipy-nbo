@@ -240,7 +240,7 @@ def api_ipy(vmid):
             response = return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
         else:
             ipydb.update(vmid, ipy=True)
-            response = return_json('started ipython on %s (%s)'%(vminfo['vm_name'], vmid))
+            response = return_json('initalized ipython on %s (%s)'%(vminfo['vm_name'], vmid))
     elif request.method == 'PUT':
         cmd = 'sudo %s/%s; sleep 1; sudo %s/%s -a %s -s %s'%(ipycfg['run_dir'], ipycfg['stop_script'], ipycfg['run_dir'], ipycfg['start_script'], cfg.get("shock", "oauth"), cfg.get("shock", "url"))
         res = utils.run_remote_cmd(vminfo['vm_ip'], ipycfg['user'], vmkey, cmd)
@@ -248,7 +248,7 @@ def api_ipy(vmid):
             response = return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
         else:
             ipydb.update(vmid, ipy=True)
-            response = return_json('rebooted ipython on %s (%s)'%(vminfo['vm_name'], vmid))
+            response = return_json('restarted ipython on %s (%s)'%(vminfo['vm_name'], vmid))
     elif request.method == 'DELETE':
         cmd = 'sudo %s/%s'%(ipycfg['run_dir'], ipycfg['stop_script'])
         res = utils.run_remote_cmd(vminfo['vm_ip'], ipycfg['user'], vmkey, cmd)
@@ -282,4 +282,4 @@ def return_json(data, err=None, status=200):
     return resp
 
 if __name__ == '__main__':
-     app.run('0.0.0.0', int(cfg.get("ipyno", "port")), debug=True)
+     app.run('0.0.0.0', int(cfg.get("ipyno", "port")), threaded=True, debug=True)
