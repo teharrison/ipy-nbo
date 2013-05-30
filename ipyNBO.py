@@ -216,6 +216,9 @@ def api_nova_server(vmid):
 
 @app.route('/ipython/<vmid>', methods=['POST', 'PUT', 'DELETE'])
 def api_ipy(vmid):
+    try_nova = get_nova(request)
+    if try_nova['status'] != 200:
+        return return_json(None, try_nova['msg'], try_nova['status'])
     ipydb = IpyDB(dbc)
     if ipydb.error:
         return return_json(None, 'Service Unavailable: unable to connect to database, %s'%ipydb.error, 503)
@@ -228,7 +231,7 @@ def api_ipy(vmid):
         return return_json(None, 'Internal Server Error: missing private key (%s) for VM %s'%(vminfo['vm_key'], vmid), 500)
     response = return_json(None, 'Method Not Allowed (%s): %s'%(request.method, request.url), 405)
     if request.method == 'POST':
-        cmd = 'cd %s; ./%s'%(ipycfg['init_dir'], ipycfg['init_script'])
+        cmd = 'cd %s; sudo ./%s'%(ipycfg['init_dir'], ipycfg['init_script'])
         res = utils.run_remote_cmd(vminfo['vm_ip'], ipycfg['user'], vmkey, cmd)
         if res['stderr']:
             response = return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
@@ -236,7 +239,7 @@ def api_ipy(vmid):
             ipydb.update(vmid, ipy=True)
             response = return_json('started ipython on %s (%s)'%(vminfo['vm_name'], vmid))
     elif request.method == 'PUT':
-        cmd = 'cd %s; ./%s; sleep 1; ./%s'%(ipycfg['run_dir'], ipycfg['stop_script'], ipycfg['start_script'])
+        cmd = 'cd %s; sudo ./%s; sleep 1; sudo ./%s'%(ipycfg['run_dir'], ipycfg['stop_script'], ipycfg['start_script'])
         res = utils.run_remote_cmd(vminfo['vm_ip'], ipycfg['user'], vmkey, cmd)
         if res['stderr']:
             response = return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
@@ -244,7 +247,7 @@ def api_ipy(vmid):
             ipydb.update(vmid, ipy=True)
             response = return_json('rebooted ipython on %s (%s)'%(vminfo['vm_name'], vmid))
     elif request.method == 'DELETE':
-        cmd = 'cd %s; ./%s'%(ipycfg['run_dir'], ipycfg['stop_script'])
+        cmd = 'cd %s; sudo ./%s'%(ipycfg['run_dir'], ipycfg['stop_script'])
         res = utils.run_remote_cmd(vminfo['vm_ip'], ipycfg['user'], vmkey, cmd)
         if res['stderr']:
             response = return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
