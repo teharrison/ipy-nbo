@@ -13,14 +13,14 @@ class Nova(object):
             self.tenant = self.handle.servers.list()[0].tenant_id
         except:
             e = sys.exc_info()[0]
-            self.error = {'status': e.http_status, 'msg': e.__doc__, 'data': None}
+            self.error = {'status': e.http_status, 'msg': e.__doc__.strip(), 'data': None}
             self.handle = None
     
     def _build_error(self, e):
         if hasattr(e, 'http_status'):
-            return {'status': e.http_status, 'msg': e.__doc__, 'data': None}
+            return {'status': e.http_status, 'msg': e.__doc__.strip(), 'data': None}
         else:
-            return {'status': 500, 'msg': 'Internal Server Error: '+e.__doc__, 'data': None}
+            return {'status': 500, 'msg': 'Internal Server Error: '+e.__doc__.strip(), 'data': None}
     
     # server object to dict
     def _server_dict(self, server):
@@ -162,10 +162,10 @@ class Nova(object):
             return self._build_error(sys.exc_info()[0])
     
     # reboot server
-    def reboot(self, sid, level='REBOOT_HARD'):
+    def reboot(self, sid, rtype='HARD'):
         try:
             server = self.handle.servers.get(sid)
-            server.reboot(level)
+            server.reboot(reboot_type=rtype)
             return {'status': 200, 'data': None}
         except:
             return self._build_error(sys.exc_info()[0])
