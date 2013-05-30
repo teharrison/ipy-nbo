@@ -174,7 +174,7 @@ def api_nova():
         ipydb = IpyDB(dbc)
         if ipydb.error:
             return return_json(None, 'Service Unavailable: unable to connect to database, %s'%ipydb.error, 503)
-        name = request.args['name'] if 'name' in request.args else 'ipynb_'+ipydb.next_val()
+        name = request.args['name'] if 'name' in request.args else 'ipynb_%d'%ipydb.next_val()
         res  = nova.create(name, ncfg["image"], ncfg["flavor"], ncfg["security"], ncfg["vm_key"])
         if res['status'] == 200:
             ipydb.insert(res['data']['id'], res['data']['name'], res['data']['addresses'][0], ncfg["vm_key"])
