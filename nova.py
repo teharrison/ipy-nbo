@@ -139,14 +139,13 @@ class Nova(object):
         return {'status': 200, 'data': data}
     
     # create server with options
-    def create(self, name, image_id, flavor_id, security_id, key_name):
+    def create(self, name, image_id, flavor_id, security_name, key_name):
         try:
-            image = self.handle.images.get(image_id)
+            image  = self.handle.images.get(image_id)
             flavor = self.handle.flavors.get(flavor_id)
-            security = self.handle.security_groups.get(security_id)
             server = self.handle.servers.create(
                 name, image, flavor,
-                security_groups=[security],
+                security_groups=[security_name],
                 key_name=key_name )
             return {'status': 200, 'data': self._server_dict(server)}
         except:
