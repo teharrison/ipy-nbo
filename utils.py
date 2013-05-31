@@ -10,11 +10,14 @@ def run_remote_cmd(host, user, key, cmd):
     try:
         ssh.connect(host, username=user, key_filename=key)
         stdin, stdout, stderr = ssh.exec_command(cmd)
+        stdin.close()
         return {'stderr': stderr.read(), 'stdout': stdout.read()}
     except:
         e = sys.exc_info()[0]
         return {'stderr': e.__doc__, 'stdout': None}
     finally:
+        stdout.close()
+        stderr.close()
         ssh.close()
 
 def stringify_dt(data):
