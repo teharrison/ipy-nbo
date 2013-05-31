@@ -234,7 +234,7 @@ def api_ipy(vmid):
         build = request.args['build'] if 'build' in request.args else 'none'
         if build not in ['none', 'ipython', 'all']:
             return return_json(None, "Bad Request: 'build' must be one of: none, ipython, all", 400)
-        cmd = 'cd %s; sudo ./%s -b %s -s %s'%(ipycfg['init_dir'], ipycfg['init_script'], build, cfg.get("shock", "url"))
+        cmd = 'sudo %s/%s -b %s -s %s'%(ipycfg['init_dir'], ipycfg['init_script'], build, cfg.get("shock", "url"))
         res = utils.run_remote_cmd(vminfo['vm_ip'], ipycfg['user'], vmkey, cmd)
         if res['stderr']:
             response = return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
@@ -282,4 +282,4 @@ def return_json(data, err=None, status=200):
     return resp
 
 if __name__ == '__main__':
-     app.run('0.0.0.0', int(cfg.get("ipyno", "port")), threaded=True, debug=True)
+     app.run('0.0.0.0', int(cfg.get("ipyno", "port")), debug=True)
