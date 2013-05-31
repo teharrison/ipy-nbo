@@ -5,20 +5,20 @@ import paramiko
 from datetime import datetime
 
 def run_remote_cmd(host, user, key, cmd):
+    res = {'stderr': None, 'stdout': None}
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
         ssh.connect(host, username=user, key_filename=key)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         stdin.close()
-        return {'stderr': stderr.read(), 'stdout': stdout.read()}
+        res['stdout'] = stdout.read()
+        res['stderr'] = ''.join(filter(lambda x: not x.startswith('zip_safe'), stderr.readlines()))
     except:
-        e = sys.exc_info()[0]
-        return {'stderr': e.__doc__, 'stdout': None}
+        res['stderr'] = sys.exc_info()[0].__doc__
     finally:
-        stdout.close()
-        stderr.close()
         ssh.close()
+        return res
 
 def stringify_dt(data):
     if data:
