@@ -7,6 +7,7 @@ from datetime import datetime
 from flask import Flask, request, jsonify, url_for
 from nova import Nova
 from ipydb import IpyDB
+from proxy import Proxy
 
 # global variables
 app = Flask(__name__)
@@ -53,14 +54,26 @@ def internal_error(error=None):
 
 # authentication
 def check_auth(headers):
-    if not (('Authorization' in headers) and headers['Authorization'].startswith('Basic ')):
-        return {'user': None, 'pswd': None, 'error': 'Unauthorized: missing Authorization header'}
-    try:
-        auth = base64.b64decode(headers['Authorization'][6:])
-        (username, password) = auth.split(':')
-        return {'user': username, 'pswd': password, 'error': None}
-    except:
-        return {'user': None, 'pswd': None, 'error': 'Unauthorized: '+sys.exc_info()[0].__doc__}
+    if ('Authorization' in headers) and headers['Authorization'].startswith('Basic '):
+        try:
+            auth = base64.b64decode(headers['Authorization'][6:])
+            (username, password) = auth.split(':')
+            return {'username': username, 'password': password, 'error': None}
+        except:
+            return {'username': None, 'error': 'Unauthorized: '+sys.exc_info()[0].__doc__}
+    elif ('Authorization' in headers) and headers['Authorization'].startswith('OAuth '):
+        try:
+            token = headers['Authorization'][6:]
+            oauth = utils.get_oauth(token)
+            if oauth['status'] != 200:
+                return {'username': None, 'error': 'Unauthorized: '+oauth['error']}
+            else:
+                oauth['data']['error'] = None
+                return oauth['data']
+        except:
+            return {'username': None, 'error': 'Unauthorized: '+sys.exc_info()[0].__doc__}
+    else:
+        return {'username': None, 'error': 'Unauthorized: missing/invalid Authorization header'}
 
 # our resources
 @app.route('/')
@@ -71,41 +84,51 @@ def api_root():
              { 'method': 'GET',
                'description': 'view db entry by vm id',
                'url': '/status/vm/<vmid>'},
+             { 'method': 'DELETE',
+               'description': 'delete db entry by vm id',
+               'url': '/status/vm/<vmid>'},
              { 'method': 'GET',
                'description': 'view db entry by user name',
                'url': '/status/user/<name>'},
              { 'method': 'GET',
-               'description': 'nova quota status for type',
-               'url': '/status/nova?type=<string>&verbosity=<min|max>'},
+               'description': 'view proxy status (Basic auth - nova admin)',
+               'url': '/proxy'},
+             { 'method': 'POST',
+               'description': 'add user to proxy list (OAuth auth - user token)',
+               'url': '/proxy'},
+             { 'method': 'DELETE',
+               'description': 'add user to proxy list (Basic auth - nova admin)',
+               'url': '/proxy?user=<string>'},
              { 'method': 'GET',
-               'description': 'build nginx conf',
-               'url': '/conf?port=<int>&ip=<string>' },
-             { 'method': 'GET',
-               'description': 'view all nova vms',
+               'description': 'view all nova vms (Basic auth - nova)',
                'url': '/nova?type=<string>' },
              { 'method': 'POST',
-               'description': 'create ipyNB vm',
+               'description': 'create ipyNB vm (Basic auth - nova)',
                'url': '/nova?type=<string>&name=<string>' },
              { 'method': 'GET',
-               'description': 'view nova vm',
+               'description': 'view nova vm (Basic auth - nova)',
                'url': '/nova/<vmid>?type=<string>' },
              { 'method': 'PUT',
-               'description': 'reboot ipynb vm',
-               'url': '/nova/<vmid>' },
+               'description': 'reboot ipynb vm (Basic auth - nova)',
+               'url': '/nova/<vmid>?type=<string>' },
              { 'method': 'DELETE',
-               'description': 'delete ipynb vm',
-               'url': '/nova/<vmid>' },
+               'description': 'delete ipynb vm (Basic auth - nova)',
+               'url': '/nova/<vmid>?type=<string>' },
+             { 'method': 'GET',
+               'description': 'nova usage status for type (Basic auth - nova)',
+               'url': '/nova/usage?type=<string>&verbosity=<max|min>'},
              { 'method': 'POST',
-               'description': 'start ipython on vm',
+               'description': 'start ipython on vm (Basic auth - nova)',
                'url': '/ipython/<vmid>?build=<none|ipython|all>' },
              { 'method': 'PUT',
-               'description': 'reboot ipython on vm',
+               'description': 'reboot ipython on vm (Basic auth - nova)',
                'url': '/ipython/<vmid>' },
              { 'method': 'DELETE',
-               'description': 'stop ipython on vm',
+               'description': 'stop ipython on vm (Basic auth - nova)',
                'url': '/ipython/<vmid>' } ]
     return return_json(data)
 
+# return list of VM objs from DB
 @app.route('/status', methods=['GET'])
 def api_status_all():
     ipydb = IpyDB(dbc)
@@ -115,61 +138,103 @@ def api_status_all():
     ipydb.exit()
     return return_json(res) if res else return_json(None, 'Internal Server Error: no data available', 500)
 
-@app.route('/status/vm/<vmid>', methods=['GET'])
+# return VM obj from DB for id
+@app.route('/status/vm/<vmid>', methods=['GET', 'DELETE'])
 def api_status_vm(vmid):
     ipydb = IpyDB(dbc)
     if ipydb.error:
         return return_json(None, 'Service Unavailable: unable to connect to database, %s'%ipydb.error, 503)
-    res = ipydb.get('vm_id', vmid)
+    response = return_json(None, 'Method Not Allowed (%s): %s'%(request.method, request.url), 405)
+    if request.method == 'GET':
+        res = ipydb.get('id', vmid)
+        response = return_json(res) if res else return_json(None, "Internal Server Error: data not available for VM '%s'"%vmid, 500)
+    elif request.method == 'DELETE':
+        ipydb.delete(vmid)
+        response = return_json(vmid+' is deleted from DB')
     ipydb.exit()
-    return return_json(res) if res else return_json(None, "Internal Server Error: data not available for VM '%s'"%vmid, 500)
+    return response
     
+# return VM obj from DB for user
 @app.route('/status/user/<name>', methods=['GET'])
 def api_status_user(name):
     ipydb = IpyDB(dbc)
     if ipydb.error:
         return return_json(None, 'Service Unavailable: unable to connect to database, %s'%ipydb.error, 503)
-    res = ipydb.get('user_name', name)
+    res = ipydb.get('user', name)
     ipydb.exit()
     return return_json(res) if res else return_json(None, "Internal Server Error: data not available for user '%s'"%name, 500)
 
-@app.route('/status/nova', methods=['GET'])
-def api_status_nova():
-    full = True if ('verbosity' in request.args) and (request.args['verbosity'] == 'max') else False
-    try_nova = get_nova(request)
-    if try_nova['status'] != 200:
-        return return_json(None, try_nova['msg'], try_nova['status'])
-    nova = try_nova['data']
-    res = nova.available(full)
-    return return_json(res['data']) if res['status'] == 200 else return_json(None, res['msg'], res['status'])
+@app.route('/proxy', methods=['GET', 'POST', 'DELETE'])
+def api_proxy():
+    pcfg = dict(cfg.items('proxy'))
+    auth = check_auth(req.headers)
+    if auth['error']:
+        return return_json(None, auth['error'], 401)
+    ipydb = IpyDB(dbc)
+    if ipydb.error:
+        return return_json(None, 'Service Unavailable: unable to connect to database, %s'%ipydb.error, 503)
+    pkey = vmkey = os.path.join(cfg.get("ipyno", "sshdir"), cfg.get('nova-admin', "vm_key")+'.pem')
+    proxy = Proxy(pcfg['ip_internal'], pcfg['user'], pcfg['port'], pcfg['config'], pkey, pcfg['template'])
+    response = return_json(None, 'Method Not Allowed (%s): %s'%(request.method, request.url), 405)
+    # return list of server objs from proxy
+    if request.method == 'GET':
+        nova = Nova(auth, cfg.get('nova-admin', "tenant"), cfg.get('nova-admin', "auth_url"))
+        if nova.error:
+            return return_json(None, nova.error['error'], nova.error['status'])
+        
+            
+        cmd = "cat "+pcfg['config']
+        res = utils.run_remote_cmd(pcfg['ip_internal'], pcfg['user'], cfg.get('nova-admin', "vm_key"), cmd)
+        if res['stderr']:
+            response = return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
+        else:
+            data = utils.parse_nginx(ipydb, res['stdout'])
+            response = return_json({'ip_internal': pcfg['ip_internal'], 'ip_external': pcfg['ip_external'], 'server': data})
+    # return server obj from proxy for user - if does not exist create it
+    elif request.method == 'POST':
+        res = ipydb.get('user', auth['username'])
+        # user already has a proxy
+        if res:
+            return return_json({'ip_internal': pcfg['ip_internal'], 'ip_external': pcfg['ip_external'], 'server': res})
+        # set proxy for user - get free port, add to db, add to nginx config
+        vm = ipydb.reserve()
+        if not vm:
+            return return_json(None, 'Service Unavailable: no free ipython servers available', 503)
+        new_port = ipydb.next_port(int(pcfg["pstart"]), int(pcfg["pend"]))
+        vm = ipydb.update(vm['id'], user=auth['username'], port=new_port)
+        template = open(os.path.join('config', pcfg['template']), 'r').read()
+        server_cfg = template.format(port=new_port, ip=vm['ip'], ipy_port=pcfg['port'])
+        cmd = 'sudo echo "%s" >> %s; sudo /etc/init.d/nginx reload'%(server_cfg, pcfg['config'])
+        res = utils.run_remote_cmd(pcfg['ip_internal'], pcfg['user'], cfg.get('nova-admin', "vm_key"), cmd)
+        if res['stderr']:
+            response = return_json(None, 'Internal Server Error: %s'%res['stderr'], 500)
+        else:
+            vm['text'] = server_cfg
+            response = return_json({'ip_internal': pcfg['ip_internal'], 'ip_external': pcfg['ip_external'], 'server': vm})
+    # delete vm from proxy based on user, remove proxy/user info from db
+    elif request.method == 'DELETE':
+        user = request.args['user'] if 'user' in request.args else None
+        if not user:
+            return {'status': 400, 'error': "Bad Request: missing user", 'data': None}
+        vm = ipydb.get('user', user)
+        if not vm:
+            return {'status': 400, 'error': "Bad Request: missing user", 'data': None}
+        ipydb.delete(vm['id'])
+        
+    ipydb.exit()
+    return response
 
-@app.route('/conf', methods=['GET'])
-def api_conf():
-    pstart = int(cfg.get("ipyno", "pstart"))
-    pend = int(cfg.get("ipyno", "pend"))
-    if ('port' not in request.args) or ('ip' not in request.args):
-        return return_json(None, "Bad Request: missing option, 'port' and 'ip' are required", 400)
-    try:
-        port = int(request.args['port'])
-    except ValueError:
-        return return_json(None, "Bad Request: 'port' must be an integer", 400)
-    if (port < pstart) or (port > pend):
-        return return_json(None, "Bad Request: 'port' must be between %d and %d"%(pstart, pend), 400)
-    template_str = open('config/'+cfg.get("proxy", "template")).read()
-    new_str = template_str.format(port=port, ip=request.args['ip'], ipy_port=cfg.get("proxy", "ipy_port"))
-    return return_json(new_str)
-    
 @app.route('/nova', methods=['GET', 'POST'])
 def api_nova():       
     try_nova = get_nova(request)
     if try_nova['status'] != 200:
-        return return_json(None, try_nova['msg'], try_nova['status'])
+        return return_json(None, try_nova['error'], try_nova['status'])
     nova = try_nova['data']
     ncfg = dict(cfg.items(try_nova['section']))
     response = return_json(None, 'Method Not Allowed (%s): %s'%(request.method, request.url), 405)
     if request.method == 'GET':
         res = nova.server()
-        response = return_json(res['data']) if res['status'] == 200 else return_json(None, res['msg'], res['status'])
+        response = return_json(res['data']) if res['status'] == 200 else return_json(None, res['error'], res['status'])
     elif request.method == 'POST':
         ipydb = IpyDB(dbc)
         if ipydb.error:
@@ -184,7 +249,7 @@ def api_nova():
             ipydb.insert(vmid, name, res['data']['addresses'][0], ncfg["vm_key"])
             response = return_json(res['data'])
         else:
-            response = return_json(None, res['msg'], res['status'])
+            response = return_json(None, res['error'], res['status'])
         ipydb.exit()
     return response
 
@@ -192,15 +257,15 @@ def api_nova():
 def api_nova_server(vmid):
     try_nova = get_nova(request)
     if try_nova['status'] != 200:
-        return return_json(None, try_nova['msg'], try_nova['status'])
+        return return_json(None, try_nova['error'], try_nova['status'])
     nova = try_nova['data']
     response = return_json(None, 'Method Not Allowed (%s): %s'%(request.method, request.url), 405)
     if request.method == 'GET':
         res = nova.server(vmid)
-        response = return_json(res['data']) if res['status'] == 200 else return_json(None, res['msg'], res['status'])
+        response = return_json(res['data']) if res['status'] == 200 else return_json(None, res['error'], res['status'])
     elif request.method == 'PUT':
         res = nova.reboot(vmid)
-        response = return_json(vmid+' is rebooting') if res['status'] == 200 else return_json(None, res['msg'], res['status'])
+        response = return_json(vmid+' is rebooting') if res['status'] == 200 else return_json(None, res['error'], res['status'])
     elif request.method == 'DELETE':
         ipydb = IpyDB(dbc)
         if ipydb.error:
@@ -210,20 +275,30 @@ def api_nova_server(vmid):
             ipydb.delete(vmid)
             response = return_json(vmid+' is deleting')
         else:
-            response = return_json(None, res['msg'], res['status'])
+            response = return_json(None, res['error'], res['status'])
         ipydb.exit()
     return response
+
+@app.route('/nova/usage', methods=['GET'])
+def api_nova_usage():
+    full = True if ('verbosity' in request.args) and (request.args['verbosity'] == 'max') else False
+    try_nova = get_nova(request)
+    if try_nova['status'] != 200:
+        return return_json(None, try_nova['error'], try_nova['status'])
+    nova = try_nova['data']
+    res = nova.available(full)
+    return return_json(res['data']) if res['status'] == 200 else return_json(None, res['error'], res['status'])
 
 @app.route('/ipython/<vmid>', methods=['POST', 'PUT', 'DELETE'])
 def api_ipy(vmid):
     try_nova = get_nova(request)
     if try_nova['status'] != 200:
-        return return_json(None, try_nova['msg'], try_nova['status'])
+        return return_json(None, try_nova['error'], try_nova['status'])
     ipydb = IpyDB(dbc)
     if ipydb.error:
         return return_json(None, 'Service Unavailable: unable to connect to database, %s'%ipydb.error, 503)
     ipycfg = dict(cfg.items('ipython'))
-    vminfo = ipydb.get('vm_id', vmid)
+    vminfo = ipydb.get('id', vmid)
     if not vminfo:
         return_json(None, "Internal Server Error: data not available for VM '%s'"%vmid, 500)
     vmkey = os.path.join(cfg.get("ipyno", "sshdir"), vminfo['vm_key']+'.pem')
@@ -263,14 +338,14 @@ def api_ipy(vmid):
 def get_nova(req):
     sect = 'nova-'+req.args['type'] if 'type' in req.args else 'nova-ipy'
     if not cfg.has_section(sect):
-        return {'status': 400, 'msg': "Bad Request: unknown nova type '%s'"%req.args['type'], 'data': None}
+        return {'status': 400, 'error': "Bad Request: unknown nova type '%s'"%req.args['type'], 'data': None}
     auth = check_auth(req.headers)
     if auth['error']:
-        return {'status': 401, 'msg': auth['error'], 'data': None}
+        return {'status': 401, 'error': auth['error'], 'data': None}
     nova = Nova(auth, cfg.get(sect, "tenant"), cfg.get(sect, "auth_url"))
     if nova.error:
         return nova.error
-    return {'status': 200, 'msg': None, 'data': nova, 'section': sect}
+    return {'status': 200, 'error': None, 'data': nova, 'section': sect}
 
 def return_json(data, err=None, status=200):
     obj = { 'data': data,

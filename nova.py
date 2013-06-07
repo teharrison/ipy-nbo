@@ -9,18 +9,18 @@ class Nova(object):
         self.error  = None
         self.tenant = None
         try:
-            self.handle = client.Client(auth['user'], auth['pswd'], tenant, url, insecure=True)
+            self.handle = client.Client(auth['username'], auth['password'], tenant, url, insecure=True)
             self.tenant = self.handle.servers.list()[0].tenant_id
         except:
             e = sys.exc_info()[0]
-            self.error = {'status': e.http_status, 'msg': e.__doc__.strip(), 'data': None}
+            self.error = {'status': e.http_status, 'error': e.__doc__.strip(), 'data': None}
             self.handle = None
     
     def _build_error(self, e):
         if hasattr(e, 'http_status'):
-            return {'status': e.http_status, 'msg': e.__doc__.strip(), 'data': None}
+            return {'status': e.http_status, 'error': e.__doc__.strip(), 'data': None}
         else:
-            return {'status': 500, 'msg': 'Internal Server Error: '+e.__doc__.strip(), 'data': None}
+            return {'status': 500, 'error': 'Internal Server Error: '+e.__doc__.strip(), 'data': None}
     
     # server object to dict
     def _server_dict(self, server):

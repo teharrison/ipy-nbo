@@ -2,7 +2,7 @@ server {{
     listen {port};
     server_name localhost;
     location / {{
-        proxy_pass http://{ip}:{ipy_port}/;
+        proxy_pass http://{ip}:{ipy}/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
