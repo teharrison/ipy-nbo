@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, re
+import os, errno, sys, re
 import requests
 import paramiko
 from datetime import datetime
@@ -43,3 +43,14 @@ def get_oauth(url, token):
     if not (data and isinstance(data, dict)):
         return {'status': 401, 'error': 'Invalid user and/or token', 'data': None}
     return {'status': 200, 'data': data}
+
+def pid_exists(pid):
+    """Check whether pid exists in the current process table."""
+    if (not pid) or (pid < 0):
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError, e:
+        return e.errno == errno.EPERM
+    else:
+        return True

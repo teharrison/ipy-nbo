@@ -83,6 +83,9 @@ def api_root():
                'description': 'view db entry by user name (Basic auth - psql)',
                'url': '/status/user/<name>'},
              { 'method': 'GET',
+               'description': 'view status of daemon (Basic auth - psql)',
+               'url': '/status/daemon'},
+             { 'method': 'GET',
                'description': 'view proxy status (Basic auth - nova-admin)',
                'url': '/proxy?user=<string>'},
              { 'method': 'POST',
@@ -183,6 +186,29 @@ def api_status_user(name):
     res = ipydb.get('user', name)
     ipydb.exit()
     return return_json(res) if res else return_json(None, "Internal Server Error: data not available for user '%s'"%name, 500)
+
+# get daemon status - use ipydb auth
+@app.route('/status/daemon', methods=['GET'])
+def api_status_daemon():
+    try_ipydb = get_ipydb(request, True)
+    if try_ipydb['status'] != 200:
+        return return_json(None, try_ipydb['error'], try_ipydb['status'])
+    prefix = cfg.get('ipyno', 'logdir')+'/ipyno'
+    data = {'pid': None, 'stderr': None, 'stdout': None}
+    try:
+        data['pid'] = int( open(prefix+'.pid', 'r').read().strip() )
+    except:
+        pass
+    try:
+        data['stderr'] = open(prefix+'.err', 'r').read().strip()
+    except:
+        pass
+    try:
+        data['stdout'] = open(prefix+'.out', 'r').read().strip()
+    except:
+        pass
+    data['running'] = utils.pid_exists(data['pid'])
+    return return_json(data)
 
 @app.route('/proxy', methods=['GET', 'POST', 'DELETE'])
 def api_proxy():
