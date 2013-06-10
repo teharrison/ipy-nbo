@@ -28,31 +28,6 @@ def stringify_dt(data):
                 data[k] = str(v)
     return data
 
-def parse_nginx(dbh, text):
-    servers = []
-    aserver = {}
-    text = ''
-    for line in text.split('\n'):
-        line.strip()
-        if line.startswith('server') and aserver:
-            aserver['text'] = text
-            servers.append(aserver)
-            aserver = {}
-            text = ''
-        elif line.startswith('listen'):
-            aserver['port'] = line.split()[1]
-        elif line.startswith('proxy_pass'):
-            m = re.search(r'http://(.+):(\d+)/', line)
-            if m:
-                aserver['ip'] = m.group(1)
-    aserver['text'] = text
-    servers.append(aserver)
-    for s in servers:
-        data = dbh.get('ip', s['ip'])
-        if data and (data['port'] == s['port']):
-            s.update(data)
-    return servers
-
 def get_oauth(url, token):
     try:
         name = token.split('|')[0].split('=')[1]

@@ -93,25 +93,33 @@ class IpyDB(object):
         cur.close()
     
     def reserve(self):
-        cur = self.cursor(True)
-        cur.execute("SELECT * FROM status WHERE user IS NULL AND reserve = %s", (False,))
+        cur = self.cursor()
+        cur.execute("SELECT id FROM status WHERE status = %s AND user IS NULL AND port IS NULL AND reserved = %s", ('ACTIVE',False))
         res = cur.fetchall()
         cur.close()
         if res and (len(res) > 0):
-            self.update(res[0]['id'], reserve=True)
-            return utils.stringify_dt(res[0])
+            return self.update(res[0][0], reserve=True)
         else:
             return None
     
     def next_port(self, start, stop):
         cur = self.cursor()
-        cur.execute("SELECT port FROM status WHERE port IS NOT NULL")
+        cur.execute("SELECT port FROM status WHERE user IS NOT NULL AND port IS NOT NULL")
         ports = map(lambda x: x[0], cur.fetchall())
         cur.close()
-        new = random.randrange(start, stop+1)
-        while new in ports:
+        if ports and (len(ports) > 0):
             new = random.randrange(start, stop+1)
-        return new
+            while new in ports:
+                new = random.randrange(start, stop+1)
+            return new
+        else:
+            return None
+    
+    def drop_user(self, vid):
+        cur = self.cursor()
+        cur.execute("UPDATE status SET user = NULL, port = NULL, reserved = %s WHERE id = %s", (vid, False))
+        cur.close()
+        return self.get('id', vid)
     
     def next_val(self):
         cur = self.cursor()
