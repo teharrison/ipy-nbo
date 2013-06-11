@@ -41,7 +41,7 @@ def internal_error(error=None):
     msg = 'Internal Server Error: %s'%request.url
     return return_json(None, msg, 500)
 
-# authentication
+# authentication - Basic and OAuth via headers
 def check_auth(headers):
     if ('Authorization' in headers) and headers['Authorization'].startswith('Basic '):
         try:
@@ -123,7 +123,7 @@ def api_root():
                'url': '/ipython/<vmid>' } ]
     return return_json(data)
 
-# return list of VM objs from DB
+# action on VM objs from DB - psql auth required
 @app.route('/status', methods=['GET', 'PUT'])
 def api_status_all():
     try_ipydb = get_ipydb(request, True)
@@ -158,6 +158,7 @@ def api_status_all():
     ipydb.exit()
     return response
 
+# action on VM obj from DB for id - psql auth required
 @app.route('/status/vm/<vmid>', methods=['GET', 'DELETE'])
 def api_status_vm(vmid):
     try_ipydb = get_ipydb(request, True)
@@ -176,7 +177,7 @@ def api_status_vm(vmid):
     ipydb.exit()
     return response
     
-# return VM obj from DB for user
+# return VM obj from DB for user - psql auth required
 @app.route('/status/user/<name>', methods=['GET'])
 def api_status_user(name):
     try_ipydb = get_ipydb(request, True)
@@ -187,7 +188,7 @@ def api_status_user(name):
     ipydb.exit()
     return return_json(res) if res else return_json(None, "Internal Server Error: data not available for user '%s'"%name, 500)
 
-# get daemon status - use ipydb auth
+# get daemon status - psql auth required
 @app.route('/status/daemon', methods=['GET'])
 def api_status_daemon():
     try_ipydb = get_ipydb(request, True)
@@ -269,6 +270,7 @@ def api_proxy():
     ipydb.exit()
     return response
 
+# action on nova servers - nova-pool auth required
 @app.route('/nova', methods=['GET', 'POST'])
 def api_nova():
     try_nova = get_nova(request, 'nova-pool')
@@ -301,6 +303,7 @@ def api_nova():
         ipydb.exit()
     return response
 
+# action on nova server for id - nova-pool auth required
 @app.route('/nova/<vmid>', methods=['GET', 'PUT', 'DELETE'])
 def api_nova_server(vmid):
     try_nova = get_nova(request, 'nova-pool')
@@ -331,6 +334,7 @@ def api_nova_server(vmid):
         ipydb.exit()
     return response
 
+# list quota / usage for nova - nova-pool auth required
 @app.route('/nova/usage', methods=['GET'])
 def api_nova_usage():
     full = True if ('verbosity' in request.args) and (request.args['verbosity'] == 'max') else False
@@ -341,6 +345,7 @@ def api_nova_usage():
     res = nova.available(full)
     return return_json(res['data']) if res['status'] == 200 else return_json(None, res['error'], res['status'])
 
+# action on ipython service on VMs in nova-pool - psql auth required
 @app.route('/ipython/<vmid>', methods=['POST', 'PUT', 'DELETE'])
 def api_ipy(vmid):
     # authenticate through db connection
@@ -379,6 +384,7 @@ def api_ipy(vmid):
     ipydb.exit()
     return return_json('%s ipython on %s (%s)'%(ipy_status[0], vminfo['vm_name'], vmid))
 
+# return nova object for given request (handels auth)
 def get_nova(req, sect):
     if not cfg.has_section(sect):
         return {'status': 500, 'error': "Internal Server Error: malformed config file", 'data': None}
@@ -390,6 +396,7 @@ def get_nova(req, sect):
         return nova.error
     return {'status': 200, 'error': None, 'data': nova}
 
+# return ipydb object for given request (handels auth)
 def get_ipydb(req, use_auth=False):
     dbc = {'host': 'localhost', 'database': cfg.get("psql", "name")}
     if use_auth:
@@ -406,6 +413,7 @@ def get_ipydb(req, use_auth=False):
         return {'status': 503, 'error': 'Service Unavailable: unable to connect to database, %s'%ipydb.error, 'data': None}
     return {'status': 200, 'error': None, 'data': ipydb}
 
+# wrap return structure around data and return json response (handels errors)
 def return_json(data, err=None, status=200):
     obj = { 'data': data,
             'error': err,
