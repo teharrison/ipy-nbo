@@ -32,10 +32,12 @@ class Proxy(object):
             line.strip()
             if line.startswith('listen'):
                 data['port'] = line.split()[1]
+                data['proxy'] = 'http://'+self.external+':'+data['port']
             if line.startswith('proxy_pass'):
-                m = re.search(r'http://(.+):(\d+)/', line)
+                m = re.search(r'http://(.+):(\d+)', line)
                 if m:
                     data['ip'] = m.group(1)
+                    data['ipython'] = m.group(0)
         if not data:
             return {'status': 500, 'error': 'Internal Server Error: invalid proxy config for %s'%user, 'data': None}
         data['user'] = user

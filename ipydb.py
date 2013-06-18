@@ -120,13 +120,6 @@ class IpyDB(object):
         cur.execute("UPDATE status SET user = NULL, port = NULL, reserved = %s WHERE id = %s", (vid, False))
         cur.close()
         return self.get('id', vid)
-    
-    def next_val(self):
-        cur = self.cursor()
-        cur.execute("SELECT MAX(_id) FROM status")
-        next_num = cur.fetchone()[0] + 1
-        cur.close()
-        return next_num
         
     def exit(self):
         self.handle.commit()

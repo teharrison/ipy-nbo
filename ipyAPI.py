@@ -195,17 +195,13 @@ def api_status_daemon():
     if try_ipydb['status'] != 200:
         return return_json(None, try_ipydb['error'], try_ipydb['status'])
     prefix = cfg.get('ipyno', 'logdir')+'/ipyno'
-    data = {'pid': None, 'stderr': None, 'stdout': None}
+    data = {'pid': None, 'log': None}
     try:
         data['pid'] = int( open(prefix+'.pid', 'r').read().strip() )
     except:
         pass
     try:
-        data['stderr'] = open(prefix+'.err', 'r').read().strip()
-    except:
-        pass
-    try:
-        data['stdout'] = open(prefix+'.out', 'r').read().strip()
+        data['log'] = open(prefix+'.log', 'r').read().strip()
     except:
         pass
     data['running'] = utils.pid_exists(data['pid'])
@@ -232,7 +228,8 @@ def api_proxy():
         else:
             data = proxy.get_server(user)
             response = return_json(data['data']) if data['status'] == 200 else return_json(None, data['error'], data['status'])
-    # return server obj from proxy for user - if does not exist create it (add user to proxy and db) (oauth auth)
+    # return server obj from proxy for user - if does not exist create it (add user to proxy and db)
+    # NOTE: this is the only API call that uses OAuth and is accessable by a normal user and not an admin
     elif request.method == 'POST':
         auth = check_auth(request.headers)
         if auth['error']:
@@ -264,6 +261,7 @@ def api_proxy():
             if vm:
                 ipydb.drop_user(vm['id'])
                 res = proxy.remove_server(user)
+                # TODO: stop ipython on vm
                 response = return_json("user '%s' removed"%user) if res['status'] == 200 else return_json(None, res['error'], res['status'])
             else:
                 response = return_json(None, "Bad Request: invalid user %s"%user, 400)
@@ -289,7 +287,7 @@ def api_nova():
         if try_ipydb['status'] != 200:
             return return_json(None, try_ipydb['error'], try_ipydb['status'])
         ipydb = try_ipydb['data']
-        name  = request.args['name'] if 'name' in request.args else 'ipynb_%d'%ipydb.next_val()
+        name  = request.args['name'] if 'name' in request.args else 'ipynb_'+utils.random_str()
         res   = nova.create(name, ncfg["image"], ncfg["flavor"], ncfg["security"], ncfg["vm_key"])
         if res['status'] == 200:
             vmid = res['data']['id']

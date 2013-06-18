@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import os, errno, sys, re
+import os, errno, sys
+import string, random
 import requests
 import paramiko
 from datetime import datetime
@@ -27,6 +28,10 @@ def stringify_dt(data):
             if type(v) is datetime:
                 data[k] = str(v)
     return data
+
+def random_str(size=8):
+    chars = string.ascii_letters + string.digits
+    return ''.join(random.choice(chars) for _ in range(size))
 
 def get_oauth(url, token):
     try:
