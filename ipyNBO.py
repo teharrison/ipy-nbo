@@ -44,9 +44,9 @@ class IpyDaemon(Daemon):
         this_pid = self.checkpid(False)
         time_now = str(datetime.datetime.now())
         if state == 'ERROR':
-            sys.stderr.write("%s [%s] [%s] [%s] [%d] %s"%(time_now, method, path, state, this_pid, msg))
+            sys.stderr.write("%s [%d] [%s] [%s] [%s] %s"%(time_now, this_pid, state, method, path, msg))
         else:
-            sys.stdout.write("%s [%s] [%s] [%s] [%d] %s"%(time_now, method, path, state, this_pid, msg))
+            sys.stdout.write("%s [%d] [%s] [%s] [%s] %s"%(time_now, this_pid, state, method, path, msg))
 
     def _update_status(self):
         """
