@@ -6,6 +6,7 @@ import datetime
 import schedule
 import ConfigParser
 from optparse import OptionParser
+from pprint import pprint
 from dateutil import parser
 from daemon import Daemon
 
@@ -19,7 +20,26 @@ class IpyDaemon(Daemon):
         prefix = self.conf.get(self.sect, 'log')+'/'+self.sect
         Daemon.__init__(self, prefix+'.pid', stdout=prefix+'.log', stderr=prefix+'.log')
     
-    def run(self):
+    def foreground(self, now=None):
+        """
+        Run daemon in forground - usefull for debugging
+        """
+        self.checkpid()
+        self.run(now=now)
+    
+    def run(self, now=None):
+        if now == 'delete':
+            pprint( self.delete_inactive() )
+            return
+        if now == 'cleanup':
+            pprint( self.cleanup() )
+            return
+        if now == 'boot':
+            pprint( self.boot_min() )
+            return
+        if now == 'status':
+            pprint( self.status() )
+            return
         sched = schedule.Scheduler()
         sched.every().hour.do(self.status)
         sched.every().day.at("00:15").do(self.delete_inactive)
@@ -216,6 +236,7 @@ def main(args):
     parser = OptionParser(usage=usage)
     parser.add_option("-c", "--config", dest="config", default='config/config.ini', help="Location of config file")
     parser.add_option("-s", "--section", dest="section", default='ipyno', help="Config section to use")
+    parser.add_option("-t", "--section", dest="test", default='status', help="test a daemon function: delete|cleanup|boot|status")
     
     (opts, args) = parser.parse_args()
     if not ((len(args) == 1) and (args[0] in ['stop','start','restart','foreground'])):
@@ -231,7 +252,7 @@ def main(args):
     elif 'restart' == args[0]:
         daemon.restart()
     elif 'foreground' == args[0]:
-        daemon.foreground()
+        daemon.foreground(now=opts.test)
     else:
         sys.stderr.write("[error] unknown command '%s'\n"%args[0])
         return 2
